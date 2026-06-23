@@ -1,0 +1,16 @@
+# Secrets / local config (never commit real values)
+apps-script/.clasp.json
+apps-script/.clasprc.json
+*.local
+.env
+secrets.json
+
+# clasp / node
+node_modules/
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
