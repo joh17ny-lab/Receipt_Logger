@@ -79,9 +79,9 @@ function doPost(e) {
       return jsonResponse(500, { ok: false, error: 'Server not configured: SHEET_ID missing. Run setup().' });
     }
     var ss = SpreadsheetApp.openById(sheetId);
-    var sheet = ss.getSheetByName(sheetName);
+    var sheet = getTargetSheet_(ss, sheetName);
     if (!sheet) {
-      return jsonResponse(500, { ok: false, error: 'Sheet tab "' + sheetName + '" not found.' });
+      return jsonResponse(500, { ok: false, error: 'No sheet tab found in the spreadsheet.' });
     }
 
     var dateStr = formatDate_(new Date());
@@ -185,13 +185,32 @@ function setup() {
 }
 
 /**
+ * Returns the target sheet/tab. Tries the configured name first; if that tab
+ * does not exist (or no name is configured), falls back to the first tab in
+ * the spreadsheet. Returns null only if the spreadsheet has no tabs at all.
+ */
+function getTargetSheet_(ss, sheetName) {
+  if (sheetName) {
+    var named = ss.getSheetByName(sheetName);
+    if (named) return named;
+  }
+  var sheets = ss.getSheets();
+  return sheets.length ? sheets[0] : null;
+}
+
+/**
  * Ensures the header row exists with the correct column names.
  * Run once after setup() if your sheet is empty.
  */
 function ensureHeaders() {
   var props = PropertiesService.getScriptProperties();
   var ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID'));
-  var sheet = ss.getSheetByName(props.getProperty('SHEET_NAME') || 'Sheet1');
+  var sheet = getTargetSheet_(ss, props.getProperty('SHEET_NAME'));
+  if (!sheet) {
+    Logger.log('ERROR: No sheet tab found in the spreadsheet. Check SHEET_ID.');
+    return;
+  }
+  Logger.log('Using sheet tab: "' + sheet.getName() + '"');
   var headers = ['LLC', 'Date', 'Description', 'Dining', 'Amount', 'Image Link'];
   var firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   var hasHeaders = firstRow.join('').trim() !== '';
