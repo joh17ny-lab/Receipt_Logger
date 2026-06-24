@@ -1,4 +1,7 @@
 # Secrets / local config (never commit real values)
+receipt logger misc.txt
+*misc.txt
+*secrets*.txt
 apps-script/.clasp.json
 apps-script/.clasprc.json
 *.local
