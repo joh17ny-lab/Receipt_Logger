@@ -31,6 +31,7 @@ plus the built-in iOS **Shortcuts** app.
 | [`apps-script/.clasp.json.example`](apps-script/.clasp.json.example:1) | Template for optional `clasp` CLI deployment. |
 | [`ios-shortcut/SHORTCUT_SETUP.md`](ios-shortcut/SHORTCUT_SETUP.md:1) | Step-by-step iPhone Shortcut build guide. |
 | [`receipt_logger.md`](receipt_logger.md:1) | Agent/spec description of the system. |
+| [`LESSONS_LEARNED.md`](LESSONS_LEARNED.md:1) | Every issue hit during setup + root cause + fix (read this if something breaks). |
 
 ---
 
