@@ -54,12 +54,21 @@ function doPost(e) {
     // ---- Validate input ----
     var llc = normalizeLlc_(data.llc);
     if (!llc) {
-      return jsonResponse(400, { ok: false, error: 'Invalid or missing "llc". Expected Ohio, Indiana, or California.' });
+      return jsonResponse(400, {
+        ok: false,
+        error: 'Invalid or missing "llc". Expected Ohio, Indiana, or California.',
+        received_llc: data.llc === undefined ? '(undefined)' : JSON.stringify(data.llc),
+        received_keys: Object.keys(data)
+      });
     }
 
     var dining = normalizeDining_(data.dining);
     if (!dining) {
-      return jsonResponse(400, { ok: false, error: 'Invalid or missing "dining". Expected Yes or No.' });
+      return jsonResponse(400, {
+        ok: false,
+        error: 'Invalid or missing "dining". Expected Yes or No.',
+        received_dining: data.dining === undefined ? '(undefined)' : JSON.stringify(data.dining)
+      });
     }
 
     var description = (data.description || '').toString().trim();
