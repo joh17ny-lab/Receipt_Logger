@@ -121,3 +121,66 @@ Open the **Shortcuts** app → tap **+** to create a new shortcut → name it
 | Dining? | `dining` | Dining | Yes, No |
 | Amount? | `amount` | Amount | number |
 | *(photo upload)* | `imageBase64` | Image Link | Drive view link |
+
+---
+
+## Optional: choose an existing photo or PDF (instead of the camera)
+
+The Web App accepts any image **or PDF** â€” it auto-detects the type and defaults
+to JPEG when nothing says otherwise, so the original camera flow above is
+unchanged. To let the Shortcut pick an existing file, you have two choices.
+
+> **Server note:** after this was enabled in [`apps-script/Code.gs`](../apps-script/Code.gs:1)
+> you must **redeploy a New version** (Deploy â†’ Manage deployments â†’ Edit â†’
+> Version: *New version* â†’ Deploy). The `/exec` URL stays the same â€” see
+> [`LESSONS_LEARNED.md`](../LESSONS_LEARNED.md:1) #5.
+
+### Option A â€” one Shortcut with a source menu
+
+Insert this **before** the existing *Take Photo* action:
+
+1. **Choose from Menu** â€” Prompt: `Add receipt fromâ€¦`
+   - **"Take Photo"** branch â†’ **Take Photo** â†’ **Set Variable** `ReceiptFile`
+   - **"Photo Library"** branch â†’ **Select Photos** (Select Multiple: Off) â†’
+     **Set Variable** `ReceiptFile`
+   - **"Files"** branch â†’ **Select File** (Select Multiple: Off) â†’
+     **Set Variable** `ReceiptFile`
+
+Then change the **Base64 Encode** step's **Input** from *Photo* to the
+**`ReceiptFile`** chip. Everything after that is unchanged.
+
+### Option B â€” duplicate as a separate Shortcut
+
+Long-press **Log Receipt â†’ Duplicate**, rename it **Log Receipt (Choose File)**,
+delete the *Take Photo* action, and replace it with **Select File** (or
+**Select Photos**). Point **Base64 Encode** at that picker's output.
+
+### Sending the file type (recommended for PDFs)
+
+So PDFs are saved with the correct type and a `.pdf` link, send the file's type
+in the JSON. Two easy ways:
+
+- **fileName carries the extension** â€” set `fileName` to the picked file's name
+  (which ends in `.pdf` / `.png` / `.jpg`). The server infers the type from the
+  extension. Get the name with a **Get Details of Files â†’ Name** action.
+- **Explicit `mimeType` field** â€” add one more key to the JSON body:
+
+  ```json
+  "mimeType": "application/pdf"
+  ```
+
+  Use a **Get Details of Files â†’ File Extension / Type** action to fill it, or
+  hard-code it in a PDF-only duplicate Shortcut.
+
+If you send neither, the server still works and **defaults to JPEG** â€” perfect
+for the camera flow, but a PDF would then get a `.jpg` name, so prefer one of
+the two methods above when picking PDFs.
+
+### Updated field reference (additions only)
+
+| Question / source | JSON key | Notes |
+|-------------------|----------|-------|
+| picked file (image or PDF) | `imageBase64` | base64, **Line Breaks: None** |
+| file's name | `fileName` | include the real extension (e.g. `invoice.pdf`) |
+| file's type *(optional)* | `mimeType` | e.g. `application/pdf`; omit to default to JPEG |
+

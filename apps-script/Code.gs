@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Receipt Logger - Google Apps Script Web App
  * --------------------------------------------
  * Receives a receipt photo + form data from an iOS Shortcut,
@@ -71,7 +71,7 @@ function doPost(e) {
       if (!folderId) {
         return jsonResponse(500, { ok: false, error: 'Server not configured: DRIVE_FOLDER_ID missing. Run setup().' });
       }
-      imageLink = saveImageToDrive_(folderId, data.imageBase64, data.fileName, llc);
+      imageLink = saveImageToDrive_(folderId, data.imageBase64, data.fileName, llc, data.mimeType);
     }
 
     // ---- Append row to Sheet ----
@@ -107,20 +107,70 @@ function doGet() {
 }
 
 /**
- * Decodes a base64 image, stores it in the configured Drive folder,
- * makes it viewable by anyone with the link, and returns that link.
+ * Decodes a base64 file (image or PDF), stores it in the configured Drive
+ * folder, makes it viewable by anyone with the link, and returns that link.
+ *
+ * Type detection is best-effort and BACKWARD COMPATIBLE:
+ *   1. An explicit `mimeType` argument wins (e.g. "application/pdf").
+ *   2. Otherwise a data-URI prefix on the base64 string is used
+ *      (e.g. "data:application/pdf;base64,...").
+ *   3. Otherwise the fileName extension is used (".pdf" / ".png" / ...).
+ *   4. If nothing indicates a type, it DEFAULTS TO image/jpeg + .jpg,
+ *      which is exactly the original camera-flow behavior.
  */
-function saveImageToDrive_(folderId, base64, fileName, llc) {
+function saveImageToDrive_(folderId, base64, fileName, llc, mimeType) {
   var folder = DriveApp.getFolderById(folderId);
-  var cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, '');
+
+  // Strip any data-URI prefix and remember the type it declared (if any).
+  var declaredType = '';
+  var prefixMatch = /^data:([^;]+);base64,/.exec(base64);
+  if (prefixMatch) { declaredType = prefixMatch[1]; }
+  var cleanBase64 = base64.replace(/^data:[^;]+;base64,/, '');
   var bytes = Utilities.base64Decode(cleanBase64);
-  var name = fileName && fileName.toString().trim()
-    ? fileName.toString().trim()
-    : 'receipt_' + llc + '_' + formatTimestamp_(new Date()) + '.jpg';
-  var blob = Utilities.newBlob(bytes, 'image/jpeg', name);
+
+  // Resolve the MIME type (explicit arg > data-URI > fileName ext > default).
+  var type = (mimeType && mimeType.toString().trim())
+    ? mimeType.toString().trim()
+    : (declaredType || mimeFromFileName_(fileName) || 'image/jpeg');
+
+  // Build a name with an extension that matches the type.
+  var ext = extFromMime_(type);
+  var name;
+  if (fileName && fileName.toString().trim()) {
+    name = fileName.toString().trim();
+    // Append the resolved extension if the name lacks any extension.
+    if (!/\.[A-Za-z0-9]{1,5}$/.test(name)) { name = name + '.' + ext; }
+  } else {
+    name = 'receipt_' + llc + '_' + formatTimestamp_(new Date()) + '.' + ext;
+  }
+
+  var blob = Utilities.newBlob(bytes, type, name);
   var file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return file.getUrl();
+}
+
+/** Best-effort MIME type from a file name's extension. Returns '' if unknown. */
+function mimeFromFileName_(fileName) {
+  if (!fileName) return '';
+  var m = /\.([A-Za-z0-9]+)$/.exec(fileName.toString().trim());
+  if (!m) return '';
+  var ext = m[1].toLowerCase();
+  var map = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    gif: 'image/gif', heic: 'image/heic', webp: 'image/webp',
+    pdf: 'application/pdf'
+  };
+  return map[ext] || '';
+}
+
+/** File extension to use for a given MIME type. Defaults to 'jpg'. */
+function extFromMime_(type) {
+  var map = {
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+    'image/heic': 'heic', 'image/webp': 'webp', 'application/pdf': 'pdf'
+  };
+  return map[(type || '').toLowerCase()] || 'jpg';
 }
 
 /** Maps user input to one of the allowed LLC values. */

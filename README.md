@@ -1,22 +1,22 @@
-# Receipt Logger
+﻿# Receipt Logger
 
 A serverless receipt-logging system for a small business. Snap a photo of a
 receipt on your iPhone, answer a few quick questions, and the system saves the
-image to Google Drive and appends a row to your Google Sheet — automatically
+image to Google Drive and appends a row to your Google Sheet â€” automatically
 stamping the date.
 
 ```
  iPhone (iOS Shortcut)
-   │  takes photo + asks: LLC, Description, Dining?, Amount
-   │  POST JSON (+ base64 image)
-   ▼
- Google Apps Script Web App  ──►  saves photo to Google Drive folder
-   │                          ──►  appends row to Google Sheet
-   ▼
+   â”‚  takes photo + asks: LLC, Description, Dining?, Amount
+   â”‚  POST JSON (+ base64 image)
+   â–¼
+ Google Apps Script Web App  â”€â”€â–º  saves photo to Google Drive folder
+   â”‚                          â”€â”€â–º  appends row to Google Sheet
+   â–¼
  Google Sheet row: LLC | Date | Description | Dining | Amount | Image Link
 ```
 
-No server to host, no monthly fee — everything runs on your Google account
+No server to host, no monthly fee â€” everything runs on your Google account
 plus the built-in iOS **Shortcuts** app.
 
 ---
@@ -60,13 +60,13 @@ plus the built-in iOS **Shortcuts** app.
 ### 2. Create the Apps Script project
 You can do this in the browser (no tools) **or** with the `clasp` CLI.
 
-**Option A — Browser (simplest)**
-1. Go to <https://script.google.com> → **New project**.
+**Option A â€” Browser (simplest)**
+1. Go to <https://script.google.com> â†’ **New project**.
 2. Replace the default `Code.gs` contents with [`apps-script/Code.gs`](apps-script/Code.gs:1).
-3. Create the manifest: Project Settings → enable *"Show appsscript.json"*, then
+3. Create the manifest: Project Settings â†’ enable *"Show appsscript.json"*, then
    paste [`apps-script/appsscript.json`](apps-script/appsscript.json:1).
 
-**Option B — clasp CLI**
+**Option B â€” clasp CLI**
 ```bash
 npm install -g @google/clasp
 clasp login
@@ -87,10 +87,10 @@ See [`apps-script/config.sample.md`](apps-script/config.sample.md:1) for each
 property and how to generate a strong `SECRET_TOKEN`.
 
 ### 4. Deploy the Web App
-1. In the editor: **Deploy → New deployment → Web app**.
-2. *Execute as:* **Me** · *Who has access:* **Anyone**.
+1. In the editor: **Deploy â†’ New deployment â†’ Web app**.
+2. *Execute as:* **Me** Â· *Who has access:* **Anyone**.
 3. Copy the **Web App URL** (ends in `/exec`).
-4. Verify by opening that URL in a browser — you should see
+4. Verify by opening that URL in a browser â€” you should see
    `{"ok":true,"service":"Receipt Logger","status":"running"}`.
 
 ### 5. Build the iPhone Shortcut
@@ -110,8 +110,9 @@ pasting your **Web App URL** and **`SECRET_TOKEN`** where indicated.
   "description": "Lunch with client",
   "dining": "Yes",
   "amount": "42.50",
-  "imageBase64": "<base64 JPEG, optional>",
-  "fileName": "receipt.jpg"
+  "imageBase64": "<base64 JPEG/PNG/PDF, optional>",
+  "fileName": "receipt.jpg",
+  "mimeType": "application/pdf"
 }
 ```
 
@@ -132,7 +133,7 @@ invalid LLC/Dining value, or server not configured).
 ---
 
 ## Security notes
-- The `SECRET_TOKEN` is the only thing protecting the public Web App URL — keep
+- The `SECRET_TOKEN` is the only thing protecting the public Web App URL â€” keep
   it long and private, and never commit the real value.
 - Saved images are set to **anyone-with-the-link can view** so the Sheet link
   works; the link is unguessable but not private. Adjust `setSharing` in
