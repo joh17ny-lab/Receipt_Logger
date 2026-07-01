@@ -275,6 +275,43 @@ not `fileName`.
 
 ---
 
+## 14. The definitive PDF fix — detect type from CONTENT, name the file server-side
+
+**Context:** After #13, getting the Shortcut to reliably send a `.pdf` `fileName`
+or a `mimeType` kept failing (the value never reached the server as a usable
+extension). Chasing it in the Shortcut was a dead end.
+
+**Solution (server-side, zero Shortcut dependence):** sniff the file's real type
+from its **magic bytes**, read straight from the base64 payload. Base64 encodes
+3 bytes into 4 chars, so a file signature maps to a fixed base64 prefix:
+
+| File | Signature | Base64 prefix |
+|------|-----------|---------------|
+| PDF  | `%PDF`    | `JVBER`  -> `application/pdf` |
+| PNG  | 0x89 PNG  | `iVBOR`  -> `image/png` |
+| JPEG | 0xFFD8FF  | `/9j/`   -> `image/jpeg` |
+| GIF  | `GIF8`    | `R0lGOD` -> `image/gif` |
+
+Implemented as `mimeFromContent_()` in [`apps-script/Code.gs`](apps-script/Code.gs:1)
+and slotted into the MIME resolution chain **above** the JPEG default:
+`explicit mimeType > data-URI > fileName ext > CONTENT SNIFF > default JPEG`.
+Now a PDF is stored as a real, openable `.pdf` no matter what the Shortcut sends.
+
+**Filename, also server-side:** rather than trust the Shortcut, the server builds
+the name from data it already has via `buildFileBaseName_(llc, dateStr)` ->
+`receipt_<LLC>_<date>`, then appends the sniffed extension
+(`receipt_Indiana_2026-07-01.pdf`). The Shortcut sends NO `fileName`/`mimeType`.
+
+**Note:** `receipt_LLC_date` (no time) means multiple receipts for the same LLC on
+the same day share a name. Drive keeps them as distinct files and each Sheet row
+has its own link, so nothing is lost. Add a time suffix if you need unique names.
+
+**Takeaway:** When a client (iOS Shortcut) can't reliably send metadata, derive it
+on the server. Content sniffing from base64 magic bytes is robust and needs no app
+changes; building the filename server-side removes the last fragile dependency.
+
+---
+
 ## Security lessons
 - The `SECRET_TOKEN` is the only thing protecting an "Anyone" web app — keep it
   long, random, and private; never commit it; never paste it in chat/screenshots.
@@ -298,7 +335,8 @@ not `fileName`.
    is empty, or the JSON key name has a stray space.
 5. **Code change not taking effect** → you didn't redeploy a New version.
 6. **Quick Look "No Items"** → re-link its input to Contents of URL.
-7. **PDF saved as `.jpg`** → send `mimeType: application/pdf` (or a `.pdf`
-   `fileName` chip) in the **Request Body JSON fields** of Get Contents of URL.
-   Watch for lowercase `filename` vs `fileName`. Echo `payload_keys` to confirm
-   your edit is in the body that is actually sent.
+7. **PDF saved as `.jpg`** → best fix is server-side content sniffing
+   (`mimeFromContent_` in `Code.gs`): detect PDF from the base64 prefix `JVBER`.
+   No Shortcut change needed. (Shortcut-side alternative: send
+   `mimeType: application/pdf` or a `.pdf` `fileName` chip; watch `filename` vs
+   `fileName` casing and echo `payload_keys` to confirm it lands.)

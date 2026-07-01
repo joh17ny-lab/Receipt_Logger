@@ -135,19 +135,49 @@ unchanged. To let the Shortcut pick an existing file, you have two choices.
 > Version: *New version* â†’ Deploy). The `/exec` URL stays the same â€” see
 > [`LESSONS_LEARNED.md`](../LESSONS_LEARNED.md:1) #5.
 
-### Option A â€” one Shortcut with a source menu
+### Option A â€” one Shortcut with a 3-way source menu
 
-Insert this **before** the existing *Take Photo* action:
+One shortcut that lets you choose **Take Photo**, **Photo Library**, or **Files**
+each time. All three branches set the SAME variable (`ReceiptFile`), so nothing
+downstream has to change.
 
-1. **Choose from Menu** â€” Prompt: `Add receipt fromâ€¦`
-   - **"Take Photo"** branch â†’ **Take Photo** â†’ **Set Variable** `ReceiptFile`
-   - **"Photo Library"** branch â†’ **Select Photos** (Select Multiple: Off) â†’
-     **Set Variable** `ReceiptFile`
-   - **"Files"** branch â†’ **Select File** (Select Multiple: Off) â†’
-     **Set Variable** `ReceiptFile`
+> Note: iOS Shortcuts has no "Select Folder" action. To pull from your photos use
+> **Select Photos**; to pull a file/PDF use **Select File**.
 
-Then change the **Base64 Encode** step's **Input** from *Photo* to the
-**`ReceiptFile`** chip. Everything after that is unchanged.
+**1. Choose from Menu** (make this the FIRST action)
+- Prompt: `Add receipt from...`
+- Menu items: `Take Photo`, `Photo Library`, `Files`
+
+**2. Fill each branch** (actions must sit INSIDE the Case, indented under it):
+
+| Menu case | Actions inside the branch |
+|-----------|---------------------------|
+| **Take Photo** | **Take Photo** -> **Set Variable** `ReceiptFile` |
+| **Photo Library** | **Select Photos** (Multiple: Off) -> **Set Variable** `ReceiptFile` |
+| **Files** | **Select File** (Multiple: Off) -> **Set Variable** `ReceiptFile` |
+
+**3. After End Menu**, point the rest of the shortcut at `ReceiptFile`:
+- **Base64 Encode** -> Input: **ReceiptFile** chip, Line Breaks: **None**
+- **Get Details of Files** -> Detail: **Name**, Input: **ReceiptFile** ->
+  **Set Variable** `FileName`
+- In the JSON body: `imageBase64` = **Base64 Encoded** chip,
+  `fileName` = **FileName** chip.
+
+**Wiring rules (common mistakes):**
+- Use the SAME variable name `ReceiptFile` in all three branches.
+- Each **Set Variable** must have its input CONNECTED to the picker's output
+  (naming it alone stores nothing - see LESSONS_LEARNED #9 / #10).
+- Put the branch actions INSIDE the Case, not below End Menu.
+
+**Type handling across all three sources (important):**
+Because one JSON body serves all three, do **NOT** hard-code
+`mimeType: application/pdf` here - that would force photos to `.pdf` too. Instead
+use the **FileName** chip for `fileName`:
+- **Take Photo** -> no filename; the server auto-names it `.jpg` (correct).
+- **Photo Library** -> `.jpg` / `.heic` name -> saved as an image.
+- **Files** -> a `.pdf` name -> saved as a PDF.
+
+The server reads the extension from `fileName` and picks the right type for each.
 
 ### Option B â€” duplicate as a separate Shortcut
 

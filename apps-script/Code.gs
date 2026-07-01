@@ -64,14 +64,17 @@ function doPost(e) {
 
     var description = (data.description || '').toString().trim();
     var amount = parseAmount_(data.amount);
+    var dateStr = formatDate_(new Date());
 
     // ---- Save image to Drive (optional) ----
+    // File is named  receipt_LLC_date  (e.g. receipt_Indiana_2026-07-01.pdf).
     var imageLink = '';
     if (data.imageBase64) {
       if (!folderId) {
         return jsonResponse(500, { ok: false, error: 'Server not configured: DRIVE_FOLDER_ID missing. Run setup().' });
       }
-      imageLink = saveImageToDrive_(folderId, data.imageBase64, data.fileName, llc, data.mimeType);
+      var baseName = buildFileBaseName_(llc, dateStr);
+      imageLink = saveImageToDrive_(folderId, data.imageBase64, baseName, llc, data.mimeType);
     }
 
     // ---- Append row to Sheet ----
@@ -84,7 +87,6 @@ function doPost(e) {
       return jsonResponse(500, { ok: false, error: 'No sheet tab found in the spreadsheet.' });
     }
 
-    var dateStr = formatDate_(new Date());
     // Columns: LLC | Date | Description | Dining | Amount | Image Link
     sheet.appendRow([llc, dateStr, description, dining, amount, imageLink]);
 
@@ -128,18 +130,24 @@ function saveImageToDrive_(folderId, base64, fileName, llc, mimeType) {
   var cleanBase64 = base64.replace(/^data:[^;]+;base64,/, '');
   var bytes = Utilities.base64Decode(cleanBase64);
 
-  // Resolve the MIME type (explicit arg > data-URI > fileName ext > default).
+  // Resolve the MIME type. Order:
+  //   explicit arg > data-URI > name ext > CONTENT SNIFF (magic bytes) > default.
+  // The content sniff makes PDFs save correctly even when the iOS Shortcut sends
+  // no mimeType and a base name without a .pdf extension.
   var type = (mimeType && mimeType.toString().trim())
     ? mimeType.toString().trim()
-    : (declaredType || mimeFromFileName_(fileName) || 'image/jpeg');
+    : (declaredType || mimeFromFileName_(fileName) || mimeFromContent_(cleanBase64) || 'image/jpeg');
 
-  // Build a name with an extension that matches the type.
+  // Build the final name: the caller supplies a base name (no extension);
+  // we append the extension that matches the resolved type. Falls back to a
+  // timestamped name if no base name was provided.
   var ext = extFromMime_(type);
   var name;
   if (fileName && fileName.toString().trim()) {
     name = fileName.toString().trim();
-    // Append the resolved extension if the name lacks any extension.
-    if (!/\.[A-Za-z0-9]{1,5}$/.test(name)) { name = name + '.' + ext; }
+    // Strip any accidental extension, then append the correct one.
+    name = name.replace(/\.[A-Za-z0-9]{1,5}$/, '');
+    name = name + '.' + ext;
   } else {
     name = 'receipt_' + llc + '_' + formatTimestamp_(new Date()) + '.' + ext;
   }
@@ -148,6 +156,34 @@ function saveImageToDrive_(folderId, base64, fileName, llc, mimeType) {
   var file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return file.getUrl();
+}
+
+/**
+ * Builds the file's base name (WITHOUT extension) as  receipt_LLC_date,
+ * e.g. "receipt_Indiana_2026-07-01". The extension is added later by
+ * saveImageToDrive_ based on the detected file type.
+ */
+function buildFileBaseName_(llc, dateStr) {
+  return 'receipt_' + llc + '_' + dateStr;
+}
+
+/**
+ * Best-effort MIME type from the file's own content (magic bytes), read from the
+ * leading base64 characters. Base64 encodes 3 bytes into 4 chars, so a file's
+ * signature maps to a fixed base64 prefix. Returns '' if unrecognized.
+ *   %PDF -> "JVBER"   (application/pdf)
+ *   PNG  -> "iVBOR"   (image/png)
+ *   JPEG -> "/9j/"    (image/jpeg)
+ *   GIF  -> "R0lGOD"  (image/gif)
+ */
+function mimeFromContent_(cleanBase64) {
+  if (!cleanBase64) return '';
+  var head = cleanBase64.toString().substring(0, 8);
+  if (head.indexOf('JVBER') === 0) return 'application/pdf';
+  if (head.indexOf('iVBOR') === 0) return 'image/png';
+  if (head.indexOf('/9j/') === 0) return 'image/jpeg';
+  if (head.indexOf('R0lGOD') === 0) return 'image/gif';
+  return '';
 }
 
 /** Best-effort MIME type from a file name's extension. Returns '' if unknown. */
