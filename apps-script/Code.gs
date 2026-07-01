@@ -227,8 +227,8 @@ function jsonResponse(status, obj) {
 function setup() {
   PropertiesService.getScriptProperties().setProperties({
     SECRET_TOKEN: 'CHANGE_ME_TO_A_LONG_RANDOM_STRING',
-    SHEET_ID: '1Wc8Dq2W4HJ7PDPcV1QaJfRPT_NMuNnVg-LDYF6sqkDY',
-    SHEET_NAME: 'Sheet1',
+    SHEET_ID: 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE',
+    SHEET_NAME: 'Current Year',
     DRIVE_FOLDER_ID: 'PASTE_YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE'
   });
   Logger.log('Script properties saved. Remove real values from setup() now.');

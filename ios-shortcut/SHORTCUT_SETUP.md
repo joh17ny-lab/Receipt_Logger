@@ -155,26 +155,60 @@ Long-press **Log Receipt â†’ Duplicate**, rename it **Log Receipt (Choose F
 delete the *Take Photo* action, and replace it with **Select File** (or
 **Select Photos**). Point **Base64 Encode** at that picker's output.
 
-### Sending the file type (recommended for PDFs)
+**Exact actions (in order):**
 
-So PDFs are saved with the correct type and a `.pdf` link, send the file's type
-in the JSON. Two easy ways:
+| # | Action | Setting | Input |
+|---|--------|---------|-------|
+| 1 | **Select File** | Select Multiple: **Off** | â€” |
+| 2 | **Set Variable** `ReceiptFile` | â€” | **Selected File** (the file itself, NOT its Name) |
+| 3 | **Base64 Encode** | Line Breaks: **None** | `ReceiptFile` |
+| 4 | **Get Details of Files** | Detail: **Name** | `ReceiptFile` |
+| 5 | **Set Variable** `FileName` | â€” | **Details of Files** (the Name output) |
 
-- **fileName carries the extension** â€” set `fileName` to the picked file's name
-  (which ends in `.pdf` / `.png` / `.jpg`). The server infers the type from the
-  extension. Get the name with a **Get Details of Files â†’ Name** action.
-- **Explicit `mimeType` field** â€” add one more key to the JSON body:
+Then in the **JSON body** action set:
+- `imageBase64` â†’ the **Base64 Encoded** chip (output of step 3)
+- `fileName` â†’ the **FileName** chip (output of step 5)
+
+> **Two separate branches, one common mistake.** The file has *two* different
+> outputs: the **file contents** (feeds Base64 Encode â†’ `imageBase64`) and its
+> **Name** (feeds `fileName`). Do NOT Base64-encode the Name â€” encode the file.
+
+### Sending the file type (REQUIRED for PDFs)
+
+The server decides the saved file type in this order (see
+[`apps-script/Code.gs:131`](../apps-script/Code.gs:131)):
+**explicit `mimeType` > data-URI prefix > `fileName` extension > default JPEG.**
+If you send none of the first three, PDFs are saved as `.jpg`.
+
+- **Best for a PDF-only shortcut â€” hard-code `mimeType`.** Add one key to the
+  JSON body with typed text (this overrides everything, so it always wins):
 
   ```json
   "mimeType": "application/pdf"
   ```
 
-  Use a **Get Details of Files â†’ File Extension / Type** action to fill it, or
-  hard-code it in a PDF-only duplicate Shortcut.
+- **Best for a mixed image/PDF shortcut â€” use the real filename.** Set
+  `fileName` to the **FileName** chip from step 5 above (it ends in `.pdf` /
+  `.png` / `.jpg`), and leave `mimeType` off. The server infers the type from
+  the extension ([`Code.gs:162`](../apps-script/Code.gs:162)).
 
 If you send neither, the server still works and **defaults to JPEG** â€” perfect
-for the camera flow, but a PDF would then get a `.jpg` name, so prefer one of
-the two methods above when picking PDFs.
+for the camera flow, but a PDF would then get a `.jpg` name.
+
+### Troubleshooting: PDF saves as `.jpg`
+
+**Symptom:** The row logs fine, but the Image Link opens a `.jpg`, not a `.pdf`.
+
+**Root cause:** The JSON is sending neither a `mimeType` nor a `.pdf` `fileName`,
+so the server hits its JPEG default ([`Code.gs:134`](../apps-script/Code.gs:134)).
+Usually the `fileName` value is still the typed `receipt.jpg` left over from the
+camera shortcut.
+
+**Fix:** Do EITHER of the following in the JSON body action:
+1. Add `mimeType` = typed `application/pdf`, OR
+2. Change `fileName` from the typed `receipt.jpg` to the **FileName** chip.
+
+Redeploying is NOT required for this â€” it is purely a shortcut/JSON fix.
 
 ### Updated field reference (additions only)
 

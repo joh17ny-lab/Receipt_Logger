@@ -232,6 +232,49 @@ Fields used (key → value):
 
 ---
 
+## 13. PDF saved as `.jpg` — and editing the WRONG body source
+
+**Symptom:** A picked PDF logged fine but was stored as `receipt_..._.jpg`. Adding
+`mimeType`/fixing `fileName` in the Shortcut had NO effect across several tries.
+
+**Root cause (two layers):**
+1. **The server never received the type.** A temporary debug echo
+   (`received_fileName`, `received_mimeType`, `payload_keys`, `base64_prefix`,
+   `resolved_type`) revealed the request contained a lowercase `filename` key and
+   **no** `mimeType`. The server reads `data.fileName` (camelCase) and
+   `data.mimeType`; JSON keys are case-sensitive, so `filename` ≠ `fileName` and
+   both came through as `(missing)`. With no type signal, the server fell back to
+   its `image/jpeg` default (see [`apps-script/Code.gs`](apps-script/Code.gs:1),
+   the MIME resolution line).
+2. **Edits weren't landing because there were TWO body definitions.** The
+   Shortcut had a hand-typed **Text** action containing `{ ... }` JSON *and* the
+   **Get Contents of URL** action's own **Request Body: JSON** key/value fields.
+   The request actually sent the key/value fields; the Text block was ignored.
+   Editing the ignored block changed nothing — the giveaway was that `payload_keys`
+   in the debug echo never changed between runs.
+
+**How we proved it:** the debug echo showed `base64_prefix` starting with
+`JVBER` (base64 for `%PDF`), confirming a real PDF was uploaded, while
+`payload_keys` stayed identical every run — proving the edited source wasn't the
+one being sent.
+
+**Fix:**
+- Edit the **actual** body that is sent — the **Request Body: JSON** fields inside
+  **Get Contents of URL**, not a separate Text action.
+- Send the type by EITHER: adding `mimeType` = typed `application/pdf` (overrides
+  everything), OR fixing the key casing to `fileName` and pointing it at a chip
+  whose value ends in `.pdf`.
+- Confirm the fix reached the request: the debug echo's `payload_keys` must
+  change (e.g. now includes `mimeType`). If it doesn't, you edited the wrong
+  source again.
+
+**Takeaway:** When Shortcut edits have "no effect," you're probably editing a body
+that isn't being sent. Echo `payload_keys` from the server — if it doesn't change,
+your edit didn't land. And remember JSON keys are case-sensitive: `filename` is
+not `fileName`.
+
+---
+
 ## Security lessons
 - The `SECRET_TOKEN` is the only thing protecting an "Anyone" web app — keep it
   long, random, and private; never commit it; never paste it in chat/screenshots.
@@ -255,3 +298,7 @@ Fields used (key → value):
    is empty, or the JSON key name has a stray space.
 5. **Code change not taking effect** → you didn't redeploy a New version.
 6. **Quick Look "No Items"** → re-link its input to Contents of URL.
+7. **PDF saved as `.jpg`** → send `mimeType: application/pdf` (or a `.pdf`
+   `fileName` chip) in the **Request Body JSON fields** of Get Contents of URL.
+   Watch for lowercase `filename` vs `fileName`. Echo `payload_keys` to confirm
+   your edit is in the body that is actually sent.
