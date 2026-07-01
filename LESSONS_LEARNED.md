@@ -302,9 +302,11 @@ the name from data it already has via `buildFileBaseName_(llc, dateStr)` ->
 `receipt_<LLC>_<date>`, then appends the sniffed extension
 (`receipt_Indiana_2026-07-01.pdf`). The Shortcut sends NO `fileName`/`mimeType`.
 
-**Note:** `receipt_LLC_date` (no time) means multiple receipts for the same LLC on
-the same day share a name. Drive keeps them as distinct files and each Sheet row
-has its own link, so nothing is lost. Add a time suffix if you need unique names.
+**Note:** the base name is now `receipt_LLC_date_time` (`HHmmss` suffix), so
+multiple receipts for the same LLC on the same day get **unique names**
+(e.g. `receipt_Indiana_20260701_142530.pdf`). Earlier this was `receipt_LLC_date`
+with no time — Drive kept same-named files as distinct entries, but the time
+suffix now makes each filename self-explanatory and collision-free.
 
 **Takeaway:** When a client (iOS Shortcut) can't reliably send metadata, derive it
 on the server. Content sniffing from base64 magic bytes is robust and needs no app

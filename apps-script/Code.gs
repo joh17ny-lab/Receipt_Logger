@@ -67,13 +67,15 @@ function doPost(e) {
     var dateStr = formatDate_(new Date());
 
     // ---- Save image to Drive (optional) ----
-    // File is named  receipt_LLC_date  (e.g. receipt_Indiana_2026-07-01.pdf).
+    // File is named  receipt_LLC_date_time  (e.g. receipt_Indiana_20260701_142530.pdf),
+    // so multiple receipts for the same LLC on the same day get unique names.
+    var now = new Date();
     var imageLink = '';
     if (data.imageBase64) {
       if (!folderId) {
         return jsonResponse(500, { ok: false, error: 'Server not configured: DRIVE_FOLDER_ID missing. Run setup().' });
       }
-      var baseName = buildFileBaseName_(llc, dateStr);
+      var baseName = buildFileBaseName_(llc, now);
       imageLink = saveImageToDrive_(folderId, data.imageBase64, baseName, llc, data.mimeType);
     }
 
@@ -159,12 +161,16 @@ function saveImageToDrive_(folderId, base64, fileName, llc, mimeType) {
 }
 
 /**
- * Builds the file's base name (WITHOUT extension) as  receipt_LLC_date,
- * e.g. "receipt_Indiana_2026-07-01". The extension is added later by
+ * Builds the file's base name (WITHOUT extension) as  receipt_LLC_date_time,
+ * e.g. "receipt_Indiana_20260701_142530". The date uses no dashes (yyyyMMdd) and
+ * the time suffix (HHmmss) makes the name unique even when multiple receipts are
+ * logged for the same LLC on the same day. The extension is added later by
  * saveImageToDrive_ based on the detected file type.
  */
-function buildFileBaseName_(llc, dateStr) {
-  return 'receipt_' + llc + '_' + dateStr;
+function buildFileBaseName_(llc, date) {
+  var dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyyMMdd');
+  var timeStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'HHmmss');
+  return 'receipt_' + llc + '_' + dateStr + '_' + timeStr;
 }
 
 /**
